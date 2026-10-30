@@ -5,7 +5,7 @@ from datetime import datetime
 import boto3
 import requests
 
-# Endpoint JSON que usa la propia página (visto en DevTools > Network)
+LIMITE = None   # None = guardar todos los reportes del año | 10 = solo los 10 últimos
 URL = "https://ultimosismo.igp.gob.pe/api/ultimo-sismo/ajaxb/{anio}"
 HEADERS = {
     'User-Agent': 'Mozilla/5.0',
@@ -58,36 +58,42 @@ def lambda_handler(event, context):
             'body': 'No se encontraron sismos en la respuesta'
         }
 
-    # Quedarse con los 10 últimos sismos
-    ultimos = sorted(sismos, key=clave_orden, reverse=True)[:10]
+    # Ordenar del más reciente al más antiguo (y limitar si corresponde)
+    sismos = sorted(sismos, key=clave_orden, reverse=True)
+    if LIMITE:
+        sismos = sismos[:LIMITE]
 
-    # Guardar los datos en DynamoDB
     dynamodb = boto3.resource('dynamodb')
     table = dynamodb.Table('TablaSismosIGP')
 
     # Eliminar todos los elementos de la tabla antes de agregar los nuevos
+    # (el scan está paginado: devuelve máx. 1 MB por llamada)
+    items_viejos = []
     scan = table.scan()
-    with table.batch_writer() as batch:
-        for each in scan['Items']:
-            batch.delete_item(
-                Key={
-                    'id': each['id']
-                }
-            )
+    items_viejos.extend(scan['Items'])
+    while 'LastEvaluatedKey' in scan:
+        scan = table.scan(ExclusiveStartKey=scan['LastEvaluatedKey'])
+        items_viejos.extend(scan['Items'])
 
-    # Insertar los nuevos datos
+    with table.batch_writer() as batch:
+        for each in items_viejos:
+            batch.delete_item(Key={'id': each['id']})
+
+    # Insertar los nuevos datos (batch_writer agrupa en lotes de 25)
     rows = []
     i = 1
-    for sismo in ultimos:
-        row = a_item(sismo)
-        row['#'] = i
-        row['id'] = str(uuid.uuid4())  # ID único (sobrescribe el id del IGP si lo hay)
-        table.put_item(Item=row)
-        rows.append(row)
-        i = i + 1
+    with table.batch_writer() as batch:
+        for sismo in sismos:
+            row = a_item(sismo)
+            row['#'] = i
+            row['id'] = str(uuid.uuid4())  # ID único (reemplaza el id del IGP)
+            batch.put_item(Item=row)
+            rows.append(row)
+            i = i + 1
 
-    # Retornar el resultado como JSON
+    # Retornar un resumen (no los 758 registros, para que la respuesta sea corta)
     return {
         'statusCode': 200,
-        'body': rows
+        'total': len(rows),
+        'body': rows[:10]
     }
