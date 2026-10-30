@@ -1,34 +1,33 @@
-org: alejandracussianovi
-service: api-web-scraping
+org: alejandracussianovi                   
+service: api-sismos-igp
 
 provider:
   name: aws
   runtime: python3.12
-  # Default memory size for functions (default: 1024MB)
-  memorySize: 1024
+  memorySize: 512
   timeout: 30
   iam:
-    role: arn:aws:iam::653189156975:role/LabRole
+    role: arn:aws:iam::653189156975:role/LabRole  
 
 functions:
-  scrape_table:
-    handler: scrap_table.lambda_handler  # Asegúrarse de que el nombre del archivo y la función coincidan
+  scrape_sismos:
+    handler: scrap_sismos.lambda_handler
     package:
       include:
-        - ./**  # Incluir todo el contenido del directorio
+        - ./**
     events:
       - http:
-          path: /scrape/table
+          path: /scrape/sismos
           method: get
           cors: true
           integration: lambda
 
 resources:
   Resources:
-    TablaWebScrapping:
+    TablaSismosIGP:
       Type: AWS::DynamoDB::Table
       Properties:
-        TableName: TablaWebScrapping
+        TableName: TablaSismosIGP
         AttributeDefinitions:
           - AttributeName: id
             AttributeType: S
