@@ -1,0 +1,37 @@
+org: TU_ORG                      # <-- cámbialo por tu org de serverless
+service: api-sismos-igp
+
+provider:
+  name: aws
+  runtime: python3.12
+  memorySize: 512
+  timeout: 30
+  iam:
+    role: arn:aws:iam::TU_ACCOUNT_ID:role/LabRole   # <-- cambia TU_ACCOUNT_ID por el de tu cuenta
+
+functions:
+  scrape_sismos:
+    handler: scrap_sismos.lambda_handler
+    package:
+      include:
+        - ./**
+    events:
+      - http:
+          path: /scrape/sismos
+          method: get
+          cors: true
+          integration: lambda
+
+resources:
+  Resources:
+    TablaSismosIGP:
+      Type: AWS::DynamoDB::Table
+      Properties:
+        TableName: TablaSismosIGP
+        AttributeDefinitions:
+          - AttributeName: id
+            AttributeType: S
+        KeySchema:
+          - AttributeName: id
+            KeyType: HASH
+        BillingMode: PAY_PER_REQUEST
