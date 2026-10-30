@@ -1,33 +1,34 @@
-org: TU_ORG                      # <-- cámbialo por tu org de serverless
-service: api-sismos-igp
+org: alejandracussianovi
+service: api-web-scraping
 
 provider:
   name: aws
   runtime: python3.12
-  memorySize: 512
+  # Default memory size for functions (default: 1024MB)
+  memorySize: 1024
   timeout: 30
   iam:
-    role: arn:aws:iam::TU_ACCOUNT_ID:role/LabRole   # <-- cambia TU_ACCOUNT_ID por el de tu cuenta
+    role: arn:aws:iam::653189156975:role/LabRole
 
 functions:
-  scrape_sismos:
-    handler: scrap_sismos.lambda_handler
+  scrape_table:
+    handler: scrap_table.lambda_handler  # Asegúrarse de que el nombre del archivo y la función coincidan
     package:
       include:
-        - ./**
+        - ./**  # Incluir todo el contenido del directorio
     events:
       - http:
-          path: /scrape/sismos
+          path: /scrape/table
           method: get
           cors: true
           integration: lambda
 
 resources:
   Resources:
-    TablaSismosIGP:
+    TablaWebScrapping:
       Type: AWS::DynamoDB::Table
       Properties:
-        TableName: TablaSismosIGP
+        TableName: TablaWebScrapping
         AttributeDefinitions:
           - AttributeName: id
             AttributeType: S
